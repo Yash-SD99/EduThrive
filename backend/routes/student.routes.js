@@ -4,13 +4,12 @@ import { allowRoles } from "../middleware/role.middleware.js";
 
 const router = express.Router();
 
-router.get(
-  "/dashboard",
-  protect,
-  allowRoles("student"),
-  (req, res) => {
+//applied to all student routes
+router.use(protect);
+router.use(allowRoles("student"));
+
+router.get("/dashboard", (req, res) => {
     res.json({ message: "Student dashboard OK" });
-  }
-);
+});
 
 export default router;

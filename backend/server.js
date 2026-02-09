@@ -18,6 +18,15 @@ app.use("/api/auth", authRoutes);
 import studentRoutes from "./routes/student.routes.js";
 app.use("/api/student", studentRoutes);
 
+import teacterRoutes from "./routes/teacher.routes.js"
+app.use("/api/teacher", teacterRoutes)
+
+import hodRoutes from "./routes/hod.routes.js"
+app.use("/api/hod", hodRoutes)
+
+import directorRoutes from "./routes/director.routes.js"
+app.use("/api/director", directorRoutes)
+
 // db
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
