@@ -1,15 +1,19 @@
 import express from "express";
-import dotenv from "dotenv";
-dotenv.config();
-
+import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
 import cors from "cors";
+import dotenv from "dotenv";
+dotenv.config();
 
 const app = express();
 
 // middleware
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:3000",
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser())
 
 // routes
 import authRoutes from "./routes/auth.routes.js";
