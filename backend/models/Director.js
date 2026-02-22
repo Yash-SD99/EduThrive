@@ -1,9 +1,76 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
+import bcrypt from "bcrypt";
 
 const directorSchema = new mongoose.Schema({
-    name: String,
-    email: { type: String, unique: true },
-    password: String,
-})
+    firstName: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    lastName: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    phone: {
+        type: String,
+        required: true
+    },
+    gender: {
+        type: String,
+        enum: ["Male", "Female", "Other"]
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true
+    },
+    password: {
+        type: String,
+        required: true,
+        minlength: 6,
+        validate: {
+            validator: function (v) {
+                // Password must have at least 1 uppercase, 1 lowercase, 1 number, 1 special character
+                return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{6,}$/.test(v);
+            },
+            message: props => "Password must be at least 6 characters and include uppercase, lowercase, number, and special character"
+        }
+    },
+    role: {
+        type: String,
+        default: "director",
+        immutable: true
+    },
+    institute: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: "Institute"
+    },
+    mustChangePassword: {
+        type: Boolean,
+        default: true
+    },
+    dateOfBirth: {
+        type: Date
+    },
+    joiningDate: {
+        type: Date,
+        default: Date.now
+    }
+}, { timestamps: true });
 
-export default mongoose.model("Director", directorSchema)
+//HASH PASSWORD BEFORE SAVE
+directorSchema.pre("save", async function () {
+    if (!this.isModified("password")) return;
+
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+});
+
+//METHOD TO COMPARE PASSWORD
+directorSchema.methods.comparePassword = async function (candidatePassword) {
+    return bcrypt.compare(candidatePassword, this.password);
+};
+
+export default mongoose.model("Director", directorSchema);
