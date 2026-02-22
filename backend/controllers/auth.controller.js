@@ -1,29 +1,43 @@
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import User from "../models/User.js";
+import Director from "../models/Director.js";
+import Teacher from "../models/Teacher.js";
+import Student from "../models/Student.js";
 
 export const login = async (req, res) => {
 	try {
-		const { email, password } = req.body;
+		const { email, password, role } = req.body;
 
-		if (!email || !password) {
+		if (!email || !password || !role) {
 			return res.status(400).json({ message: "Missing credentials" });
 		}
 
-		const user = await User.findOne({ email });
+		const modelMap = {
+			director: Director,
+			hod: Teacher,
+			teacher: Teacher,
+			student: Student
+		};
 
+		const Model = modelMap[role];
+
+		if (!Model) {
+			return res.status(400).json({ message: "Invalid role" });
+		}
+
+		const user = await Model.findOne({ email })
+		
 		if (!user) {
 			return res.status(401).json({ message: "Invalid credentials" });
 		}
 
-		const isMatch = await bcrypt.compare(password, user.password);
+		const isMatch = await user.comparePassword(password);
 
 		if (!isMatch) {
 			return res.status(401).json({ message: "Invalid credentials" });
 		}
 
 		const token = jwt.sign(
-			{ id: user._id, role: user.role },
+			{ id: user._id, role: user.role, institute: user.institute },
 			process.env.JWT_SECRET,
 			{ expiresIn: "1d" }
 		);
