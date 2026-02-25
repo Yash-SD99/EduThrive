@@ -22,13 +22,11 @@ const courseSchema = new mongoose.Schema({
       ref: "Department",
       required: true
     },
-    teachers: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Teacher"
-    }],
     credits: {
         type: Number,
-        required: [true, "Course Credits are required"]
+        required: [true, "Course Credits are required"],
+        min: 0,
+        max: 4
     },
     semester: {
         type: Number,
@@ -40,5 +38,8 @@ const courseSchema = new mongoose.Schema({
 
 // Unique course code per institute
 courseSchema.index({ code: 1, institute: 1 }, { unique: true });
+
+//For performance
+courseSchema.index({ department: 1, institute: 1 });
 
 export default mongoose.model("Course", courseSchema)
