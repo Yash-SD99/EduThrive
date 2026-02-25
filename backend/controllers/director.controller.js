@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import Institute from "../models/Institute.js";
 import Director from "../models/Director.js"
 import Department from "../models/Department.js";
@@ -158,7 +157,14 @@ const deleteDepartment = async (req, res) => {
 const createTeacher = async (req, res) => {
     try {
         const instituteId = req.user.institute;
-        const { name, department } = req.body;
+        const { firstName, lastName, phone, department } = req.body;
+
+        if (!firstName || !lastName || !phone) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+        }
 
         const dept = await Department.findOne({
             _id: department,
@@ -173,6 +179,7 @@ const createTeacher = async (req, res) => {
         }
 
         const institute = await Institute.findById(instituteId);
+        const name = `${firstName.trim()} ${lastName.trim()}`;
 
         const baseEmail = `${name.toLowerCase().replace(/\s+/g, ".")}_${dept.code.toLowerCase()}`;
         const domain = institute.code.toLowerCase();
@@ -188,7 +195,9 @@ const createTeacher = async (req, res) => {
         const password = "Pass@123";
 
         const teacher = await Teacher.create({
-            name,
+            firstName: firstName,
+            lastName: lastName,
+            phone: phone,
             department,
             email,
             password,
@@ -241,7 +250,7 @@ const updateTeacher = async (req, res) => {
             return res.status(404).json({ message: "Teacher not found" });
         }
 
-        const { name, department } = req.body;
+        const { firstName, lastName, phone, department } = req.body;
 
         let dept = teacher.department;
 
@@ -261,25 +270,37 @@ const updateTeacher = async (req, res) => {
             teacher.department = dept._id;
         }
 
-        if (name) {
-            teacher.name = name;
+        if (firstName) {
+            teacher.firstName = firstName;
         }
 
-        const institute = await Institute.findById(instituteId);
-
-        const baseEmail = `${teacher.name.toLowerCase().replace(/\s+/g, ".")}_${dept.code.toLowerCase()}`;
-        const domain = institute.code.toLowerCase();
-
-        let email = `${baseEmail}@${domain}.edu`;
-        let counter = 1;
-
-        while (await Teacher.findOne({ email, _id: { $ne: teacher._id } })) {
-            email = `${baseEmail}_${counter}@${domain}.edu`;
-            counter++;
+        if (lastName) {
+            teacher.lastName = lastName;
         }
 
-        teacher.email = email;
-        
+        if (phone) {
+            teacher.phone = phone;
+        }
+
+        if (firstName || lastName || department) {
+            const name = `${teacher.firstName} ${teacher.lastName}`;
+
+            const institute = await Institute.findById(instituteId);
+
+            const baseEmail = `${name.toLowerCase().replace(/\s+/g, ".")}_${dept.code.toLowerCase()}`;
+            const domain = institute.code.toLowerCase();
+
+            let email = `${baseEmail}@${domain}.edu`;
+            let counter = 1;
+
+            while (await Teacher.findOne({ email, _id: { $ne: teacher._id } })) {
+                email = `${baseEmail}_${counter}@${domain}.edu`;
+                counter++;
+            }
+
+            teacher.email = email;
+        }
+
         await teacher.save();
 
         res.status(200).json({
@@ -299,6 +320,15 @@ const deleteTeacher = async (req, res) => {
     try {
         const instituteId = req.user.institute;
         const teacherId = req.params.teacherid;
+
+        const sectionExists = await Section.exists({ institute: instituteId, teacher: teacherId });
+
+        if (sectionExists) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot delete teacher assigned to sections"
+            });
+        }
 
         const teacher = await Teacher.findOneAndDelete({
             _id: teacherId,
@@ -324,6 +354,74 @@ const deleteTeacher = async (req, res) => {
     }
 };
 
+//Promote to HOD
+const promote = async (req, res) => {
+    try {
+        const instituteId = req.user.institute;
+        const teacherId = req.params.teacherid;
+
+        const teacher = await Teacher.findOne({
+            _id: teacherId,
+            institute: instituteId,
+        });
+
+        if (!teacher) {
+            return res.status(404).json({
+                success: false,
+                message: "Teacher not found"
+            });
+        }
+
+        if (teacher.role === "hod") {
+            return res.status(400).json({
+                success: false,
+                message: "Teacher is already HOD"
+            });
+        }
+
+        const department = await Department.findOne({
+            _id: teacher.department,
+            institute: instituteId
+        });
+
+        if (!department) {
+            return res.status(404).json({
+                success: false,
+                message: "Department not found"
+            });
+        }
+
+        // If department already has HOD
+        if (department.hod) {
+            const oldHod = await Teacher.findOne({
+                _id: department.hod,
+                institute: instituteId
+            });
+
+            if (oldHod) {
+                oldHod.role = "teacher";
+                await oldHod.save();
+            }
+        }
+
+        teacher.role = "hod";
+        department.hod = teacher._id;
+
+        await teacher.save();
+        await department.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Teacher promoted to HOD successfully"
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 //----------------------------------------
 //           CRUD Student
 //----------------------------------------
@@ -332,7 +430,14 @@ const deleteTeacher = async (req, res) => {
 const createStudent = async (req, res) => {
     try {
         const instituteId = req.user.institute;
-        const { name, department } = req.body;
+        const { firstName, lastName, phone, department } = req.body;
+
+        if (!firstName || !lastName || !phone) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+        }
 
         // Validate Department
         const dept = await Department.findOne({
@@ -353,7 +458,7 @@ const createStudent = async (req, res) => {
         const updatedDept = await Department.findByIdAndUpdate(
             department,
             { $inc: { studentCounter: 1 } },
-            { new: true}
+            { new: true }
         );
 
         const counter = updatedDept.studentCounter;
@@ -368,9 +473,11 @@ const createStudent = async (req, res) => {
 
         // Create Student
         await Student.create({
+            firstName,
+            lastName,
+            phone,
             email,
             password,
-            name,
             department,
             rollNo,
             institute: instituteId
@@ -410,7 +517,7 @@ const updateStudent = async (req, res) => {
     try {
         const instituteId = req.user.institute;
         const studentId = req.params.studentid;
-        const { name, department, sem } = req.body;
+        const { firstName, lastName, phone, department, sem } = req.body;
 
         const student = await Student.findOne({
             _id: studentId,
@@ -418,12 +525,14 @@ const updateStudent = async (req, res) => {
             role: "student"
         });
 
-        if (!student) { 
+        if (!student) {
             return res.status(404).json({ message: "Student not found" });
         }
 
         // Update name
-        if (name) student.name = name;
+        if (firstName) student.firstName = firstName;
+        if (lastName) student.lastName = lastName;
+        if (phone) student.phone = phone;
 
         // Update semester
         if (sem) student.sem = sem;
@@ -444,7 +553,7 @@ const updateStudent = async (req, res) => {
             const updatedDept = await Department.findByIdAndUpdate(
                 department,
                 { $inc: { studentCounter: 1 } },
-                { new: true, session }
+                { new: true }
             );
 
             const padded = updatedDept.studentCounter
@@ -485,7 +594,7 @@ const deleteStudent = async (req, res) => {
         const studentId = req.params.studentid;
 
         // Find student
-        const student = await Student.findOneAndDelete({_id: studentId, institute: instituteId});
+        const student = await Student.findOneAndDelete({ _id: studentId, institute: instituteId });
 
         if (!student) {
             return res.status(404).json({
@@ -506,8 +615,12 @@ const deleteStudent = async (req, res) => {
     }
 };
 
+//----------------------------------------
+//           Profile
+//----------------------------------------
+
 //READ Profile
-const readProfile = async(req, res) => {
+const readProfile = async (req, res) => {
     try {
         const director = await Director.findById(req.user.id).populate("institute")
 
@@ -517,7 +630,7 @@ const readProfile = async(req, res) => {
 
         res.status(200).json({ success: true, data: director });
     }
-    catch(error) {
+    catch (error) {
         res.status(500).json({
             success: false,
             message: error.message
@@ -612,8 +725,8 @@ const changePassword = async (req, res) => {
             return res.status(400).json({ success: false, message: "Current password is incorrect" });
         }
 
-        if(currentPassword == newPassword) {
-            return res.status(400).json({success: false, message: "Current Password and New Password cannot be same"})
+        if (currentPassword == newPassword) {
+            return res.status(400).json({ success: false, message: "Current Password and New Password cannot be same" })
         }
 
         director.password = newPassword;
@@ -643,6 +756,9 @@ export default {
     readTeacher,
     updateTeacher,
     deleteTeacher,
+
+    //HOD Promotion
+    promote,
 
     //CRUD Student
     createStudent,

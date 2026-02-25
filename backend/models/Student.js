@@ -2,10 +2,28 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 
 const studentSchema = new mongoose.Schema({
-	name: {
-		type: String,
-		required: [true, "Student name is required"]
-	},
+	firstName: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    lastName: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    phone: {
+        type: String,
+        required: true,
+        match: [/^\+?[1-9]\d{7,14}$/, "Invalid phone number"]
+    },
+    gender: {
+        type: String,
+        enum: ["Male", "Female", "Other"]
+    },
+    dateOfBirth: {
+        type: Date
+    },
 	email: {
 		type: String,
 		required: true,

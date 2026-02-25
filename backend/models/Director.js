@@ -14,11 +14,15 @@ const directorSchema = new mongoose.Schema({
     },
     phone: {
         type: String,
-        required: true
+        required: true,
+        match: [/^\+?[1-9]\d{7,14}$/, "Invalid phone number"]
     },
     gender: {
         type: String,
         enum: ["Male", "Female", "Other"]
+    },
+    dateOfBirth: {
+        type: Date
     },
     email: {
         type: String,
@@ -50,9 +54,6 @@ const directorSchema = new mongoose.Schema({
     mustChangePassword: {
         type: Boolean,
         default: true
-    },
-    dateOfBirth: {
-        type: Date
     },
     joiningDate: {
         type: Date,

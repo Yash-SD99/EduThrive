@@ -27,6 +27,9 @@ router.get("/admin/teacher/", Director.readTeacher)
 router.put("/admin/teacher/:teacherid", Director.updateTeacher)
 router.delete("/admin/teacher/:teacherid", Director.deleteTeacher)
 
+//HOD Promotion
+router.post("/admin/promote", Director.promote)
+
 //CRUD Student
 router.post("/admin/student", Director.createStudent)
 router.get("/admin/student", Director.readStudent)
