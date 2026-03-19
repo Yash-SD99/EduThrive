@@ -1,1 +1,59 @@
 @import "tailwindcss";
+
+/* ============================= */
+/* Design System - Light Mode */
+/* ============================= */
+:root {
+  --background: 241 245 249; /* slate-100 */
+  --card: 255 255 255; /* white */
+  --text: 15 23 42; /* slate-900 */
+  
+  --primary: 7 18 242;
+  /*navy blue */
+  --secondary: 58 191 250;
+  /* blue-600 */
+}
+
+/* ============================= */
+/* Dark Mode */
+/* ============================= */
+.dark {
+  --background: 15 23 42;
+  /* slate-900 */
+  --card: 30 41 59;
+  /* slate-800 */
+  --text: 248 250 252;
+  /* slate-50 */
+  --primary: 7 18 242;
+  /*navy blue */
+  --secondary: 59 130 246;
+  /* blue-500 */
+}
+
+@layer utilities {
+  * {
+    transition: background-color 0.3s ease,
+      color 0.3s ease,
+      border-color 0.3s ease;
+  }
+
+  .bg-background {
+    background-color: rgb(var(--background));
+  }
+
+  .bg-card {
+    background-color: rgb(var(--card));
+  }
+
+  .text-main {
+    color: rgb(var(--text));
+  }
+
+  .bg-primary {
+    background-color: rgb(var(--primary));
+  }
+
+  .bg-secondary {
+    background-color: rgb(var(--secondary));
+  }
+}

@@ -9,7 +9,10 @@ const app = express();
 
 // middleware
 app.use(cors({
-  origin: "http://localhost:3000",
+  origin: [
+    process.env.FRONTEND_URL,
+    "http://192.168.0.101:3000"
+  ],
   credentials: true
 }));
 app.use(express.json());
@@ -41,6 +44,6 @@ mongoose.connect(process.env.MONGO_URI)
 
 // start server
 const PORT = process.env.PORT;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });

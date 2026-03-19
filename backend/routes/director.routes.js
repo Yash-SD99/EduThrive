@@ -13,28 +13,27 @@ router.get("/dashboard", (req, res) => {
     res.json({ message: "Director dashboard OK" })
 })
 
-//Admin Routes
-
 //CRUD Department
-router.post("/admin/department", Director.createDepartment)
-router.get("/admin/department", Director.readDepartment)
-router.put("/admin/department/:departmentid", Director.updateDepartment)
-router.delete("/admin/department/:departmentid", Director.deleteDepartment)
+router.post("/departments", Director.createDepartment)
+router.get("/departments", Director.getDepartments)
+router.get("/departments/:departmentid", Director.getTeachersByDepartment)
+router.put("/departments/:departmentid", Director.updateDepartment)
+router.delete("/departments/:departmentid", Director.deleteDepartment)
 
 //CRUD Teacher
-router.post("/admin/teacher", Director.createTeacher)
-router.get("/admin/teacher/", Director.readTeacher)
-router.put("/admin/teacher/:teacherid", Director.updateTeacher)
-router.delete("/admin/teacher/:teacherid", Director.deleteTeacher)
+router.post("/teachers", Director.createTeacher)
+router.get("/teachers", Director.getTeachers)
+router.put("/teachers/:teacherid", Director.updateTeacher)
+router.delete("/teachers/:teacherid", Director.deleteTeacher)
 
 //HOD Promotion
-router.post("/admin/promote", Director.promote)
+router.post("/teachers/:teacherid/promote", Director.promote)
 
 //CRUD Student
-router.post("/admin/student", Director.createStudent)
-router.get("/admin/student", Director.readStudent)
-router.put("/admin/student/:studentid", Director.updateStudent)
-router.delete("/admin/student/:studentid", Director.deleteStudent)
+router.post("/students", Director.createStudent)
+router.get("/students", Director.getStudents)
+router.put("/students/:studentid", Director.updateStudent)
+router.delete("/students/:studentid", Director.deleteStudent)
 
 //Profile
 router.get("/profile", Director.readProfile)
