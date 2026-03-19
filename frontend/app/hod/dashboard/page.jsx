@@ -7,10 +7,9 @@ const dashboard = () => {
   const router = useRouter()
 
   const handleLogout = async () => {
-    await fetch("http://localhost:5000/api/auth/logout", {
+    await fetch("/api/auth/logout", {
       method: "POST",
-      credentials: "include",
-    });
+    })
 
     router.replace("/"); //Used replace instead of push So that user cant go back using back arrow 
   };

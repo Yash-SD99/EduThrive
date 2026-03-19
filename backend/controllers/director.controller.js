@@ -3,6 +3,7 @@ import Director from "../models/Director.js"
 import Department from "../models/Department.js";
 import Teacher from "../models/Teacher.js";
 import Student from "../models/Student.js";
+import Section from "../models/Section.js";
 
 //----------------------------------------
 //           CRUD Department
@@ -47,19 +48,121 @@ const createDepartment = async (req, res) => {
     }
 };
 
-// READ Departments
-const readDepartment = async (req, res) => {
+// GET Departments
+const getDepartments = async (req, res) => {
     try {
         const instituteId = req.user.institute;
 
-        const departments = await Department.find({ institute: instituteId })
-            .populate("hod", "name")
-            .populate("institute", "name code");
+        // If no pagination params → return ALL
+        const isPaginated = req.query.page || req.query.limit;
 
-        res.status(200).json({ success: true, data: departments });
+        // =============================
+        // NON-PAGINATED (GET ALL)
+        // =============================
+        if (!isPaginated) {
+            const departments = await Department.find({
+                institute: instituteId,
+            })
+                .populate("hod", "firstName lastName")
+                .sort({ createdAt: -1 });
+
+            return res.status(200).json({
+                success: true,
+                data: departments,
+            });
+        }
+
+        // =============================
+        // PAGINATED
+        // =============================
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        const skip = (page - 1) * limit;
+
+        const total = await Department.countDocuments({
+            institute: instituteId,
+        });
+
+        const departments = await Department.find({
+            institute: instituteId,
+        })
+            .populate("hod", "firstName lastName")
+            .skip(skip)
+            .limit(limit)
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            data: departments,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
+    }
+};
+
+//Get Teacher
+const getTeachersByDepartment = async (req, res) => {
+    try {
+        const instituteId = req.user.institute;
+        const departmentId = req.params.departmentid
+
+        const filter = { institute: instituteId, department: departmentId };
+
+        const teachers = await Teacher.find(filter)
+
+        res.status(200).json({ success: true, data: teachers });
     } catch (error) {
         res.status(500).json({ success: false, message: "Server error" });
     }
+}
+
+//Promoting to HOD
+const promoteTeacherToHod = async (teacherId, instituteId) => {
+    const teacher = await Teacher.findOne({
+        _id: teacherId,
+        institute: instituteId,
+    });
+
+    if (!teacher) {
+        throw new Error("Teacher not found");
+    }
+
+    const department = await Department.findOne({
+        _id: teacher.department,
+        institute: instituteId,
+    });
+
+    if (!department) {
+        throw new Error("Department not found");
+    }
+
+    if (department.hod) {
+        const oldHod = await Teacher.findById(department.hod);
+
+        if (oldHod) {
+            oldHod.role = "teacher";
+            await oldHod.save();
+        }
+    }
+
+    teacher.role = "hod";
+    department.hod = teacher._id;
+
+    await teacher.save();
+    await department.save();
+
+    return true;
 };
 
 // UPDATE Department
@@ -67,26 +170,63 @@ const updateDepartment = async (req, res) => {
     try {
         const instituteId = req.user.institute;
 
-        if (req.body.hod) {
-            const teacher = await Teacher.findById(req.body.hod);
-            if (!teacher) {
-                return res.status(400).json({ success: false, message: "Invalid teacher ID for HOD" });
+        // If user removed HOD
+        if (req.body.hod === "") {
+
+            const department = await Department.findOne({
+                _id: req.params.departmentid,
+                institute: instituteId
+            });
+
+            if (department && department.hod) {
+                const oldHod = await Teacher.findById(department.hod);
+
+                if (oldHod) {
+                    oldHod.role = "teacher";
+                    await oldHod.save();
+                }
             }
+
+            req.body.hod = null; // IMPORTANT FIX
+        }
+
+        // If new HOD selected
+        else if (req.body.hod) {
+            await promoteTeacherToHod(req.body.hod, instituteId);
         }
 
         const department = await Department.findOneAndUpdate(
             { _id: req.params.departmentid, institute: instituteId },
             req.body,
             { new: true, runValidators: true }
-        );
+        ).populate("hod", "firstName lastName");
 
         if (!department) {
-            return res.status(404).json({ success: false, message: "Department not found" });
+            return res.status(404).json({
+                success: false,
+                message: "Department not found"
+            });
         }
 
-        res.status(200).json({ success: true, message: "Department updated successfully", data: department });
+        res.status(200).json({
+            success: true,
+            message: "Department updated successfully",
+            data: department
+        });
+
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: "Department with same code already exists in the institute"
+            });
+        }
+
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
     }
 };
 
@@ -179,7 +319,7 @@ const createTeacher = async (req, res) => {
         }
 
         const institute = await Institute.findById(instituteId);
-        const name = `${firstName.trim()} ${lastName.trim()}`;
+        const name = `${firstName.trim()}_${lastName.trim()}`;
 
         const baseEmail = `${name.toLowerCase().replace(/\s+/g, ".")}_${dept.code.toLowerCase()}`;
         const domain = institute.code.toLowerCase();
@@ -218,21 +358,67 @@ const createTeacher = async (req, res) => {
     }
 };
 
-//Read Teacher
-const readTeacher = async (req, res) => {
+// GET Teachers
+const getTeachers = async (req, res) => {
     try {
         const instituteId = req.user.institute;
 
-        const filter = { institute: instituteId, role: "teacher" };
+        const isPaginated = req.query.page || req.query.limit;
 
-        const teachers = await Teacher.find(filter)
-            .populate("institute", "name code");
+        // =============================
+        // NON-PAGINATED (GET ALL)
+        // =============================
+        if (!isPaginated) {
+            const teachers = await Teacher.find({
+                institute: instituteId,
+            })
+                .populate("department", "name")
+                .sort({ createdAt: -1 });
 
-        res.status(200).json({ success: true, data: teachers });
+            return res.status(200).json({
+                success: true,
+                data: teachers,
+            });
+        }
+
+        // =============================
+        // PAGINATED
+        // =============================
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        const skip = (page - 1) * limit;
+
+        const total = await Teacher.countDocuments({
+            institute: instituteId,
+        });
+
+        const teachers = await Teacher.find({
+            institute: instituteId,
+        })
+            .populate("department", "name")
+            .skip(skip)
+            .limit(limit)
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            data: teachers,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+
     } catch (error) {
-        res.status(500).json({ success: false, message: "Server error" });
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
     }
-}
+};
 
 //Update Teacher
 const updateTeacher = async (req, res) => {
@@ -242,8 +428,7 @@ const updateTeacher = async (req, res) => {
 
         const teacher = await Teacher.findOne({
             _id: teacherId,
-            institute: instituteId,
-            role: "teacher"
+            institute: instituteId
         })
 
         if (!teacher) {
@@ -304,6 +489,7 @@ const updateTeacher = async (req, res) => {
         await teacher.save();
 
         res.status(200).json({
+            success: true,
             message: "Teacher updated successfully",
             teacher: teacher
         });
@@ -332,8 +518,7 @@ const deleteTeacher = async (req, res) => {
 
         const teacher = await Teacher.findOneAndDelete({
             _id: teacherId,
-            institute: instituteId,
-            role: "teacher"
+            institute: instituteId
         });
 
         if (!teacher) {
@@ -496,21 +681,63 @@ const createStudent = async (req, res) => {
     }
 };
 
-//READ Student
-const readStudent = async (req, res) => {
+// GET Students
+const getStudents = async (req, res) => {
     try {
         const instituteId = req.user.institute;
 
+        const isPaginated = req.query.page || req.query.limit;
+
         const filter = { institute: instituteId, role: "student" };
 
-        const students = await Student.find(filter)
-            .populate("institute", "name code");
+        // =============================
+        // NON-PAGINATED (GET ALL)
+        // =============================
+        if (!isPaginated) {
+            const students = await Student.find(filter)
+                .populate("department", "name")
+                .sort({ createdAt: -1 });
 
-        res.status(200).json({ success: true, data: students });
+            return res.status(200).json({
+                success: true,
+                data: students,
+            });
+        }
+
+        // =============================
+        // PAGINATED
+        // =============================
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        const skip = (page - 1) * limit;
+
+        const total = await Student.countDocuments(filter);
+
+        const students = await Student.find(filter)
+            .populate("department", "name")
+            .skip(skip)
+            .limit(limit)
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            data: students,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+
     } catch (error) {
-        res.status(500).json({ success: false, message: "Server error" });
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
     }
-}
+};
 
 //UPDATE Student
 const updateStudent = async (req, res) => {
@@ -747,13 +974,14 @@ export default {
 
     //CRUD Department
     createDepartment,
-    readDepartment,
+    getDepartments,
+    getTeachersByDepartment,
     updateDepartment,
     deleteDepartment,
 
     //CRUD Teacher
     createTeacher,
-    readTeacher,
+    getTeachers,
     updateTeacher,
     deleteTeacher,
 
@@ -762,7 +990,7 @@ export default {
 
     //CRUD Student
     createStudent,
-    readStudent,
+    getStudents,
     updateStudent,
     deleteStudent,
 
