@@ -1,6 +1,7 @@
 import Course from "../models/Course.js";
 import Section from "../models/Section.js";
 import Teacher from "../models/Teacher.js";
+import Enrollment from "../models/Enrollment.js";
 
 //----------------------------------------
 //           CRUD Course
@@ -70,12 +71,12 @@ const createCourse = async (req, res) => {
     }
 };
 
-//READ Course
-const readCourse = async (req, res) => {
+//GET Courses
+const getCourses = async (req, res) => {
     try {
         const hod = await Teacher.findById(req.user.id)
             .select("institute department")
-            .lean(); //Faster read because lean sends POJO instead of mongoose Document
+            .lean();
 
         if (!hod) {
             return res.status(404).json({
@@ -84,36 +85,167 @@ const readCourse = async (req, res) => {
             });
         }
 
-        const courses = await Course.find({ institute: hod.institute, department: hod.department })
+        const filter = {
+            institute: hod.institute,
+            department: hod.department
+        };
+
+        const isPaginated = req.query.page || req.query.limit;
+
+        // =============================
+        // NON-PAGINATED (GET ALL)
+        // =============================
+        if (!isPaginated) {
+            const courses = await Course.find(filter)
+                .select("name code semester credits createdAt")
+                .sort({ semester: 1 })
+                .lean();
+
+            return res.status(200).json({
+                success: true,
+                data: courses
+            });
+        }
+
+        // =============================
+        // PAGINATED
+        // =============================
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        const skip = (page - 1) * limit;
+
+        const total = await Course.countDocuments(filter);
+
+        const courses = await Course.find(filter)
             .select("name code semester credits createdAt")
             .sort({ semester: 1 })
+            .skip(skip)
+            .limit(limit)
             .lean();
 
         res.status(200).json({
             success: true,
-            count: courses.length,
-            data: courses
+            data: courses,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
         });
+
     } catch (error) {
-        res.status(400).json({
+        res.status(500).json({
             success: false,
             message: error.message
         });
     }
 };
 
-//UPDATE Course
+// UPDATE Course
 const updateCourse = async (req, res) => {
     try {
+        const { id } = req.params;
+        const { name, sem, credits } = req.body;
 
-    }
-    catch(error) {
+        // =============================
+        // Get HOD
+        // =============================
+        const hod = await Teacher.findById(req.user.id)
+            .select("institute department")
+            .lean();
+
+        if (!hod) {
+            return res.status(404).json({
+                success: false,
+                message: "HOD not found"
+            });
+        }
+
+        // =============================
+        // Find Course + Ownership Check
+        // =============================
+        const course = await Course.findOne({
+            _id: id,
+            institute: hod.institute,
+            department: hod.department
+        });
+
+        if (!course) {
+            return res.status(404).json({
+                success: false,
+                message: "Course not found or not authorized"
+            });
+        }
+
+        // =============================
+        // Update Fields
+        // =============================
+
+        // If name changes → regenerate code
+        if (name && name.trim() !== course.name) {
+            const hodData = await Teacher.findById(req.user.id)
+                .populate("institute", "code")
+                .populate("department", "code")
+                .lean();
+
+            const cleanName = name.trim().replace(/\s+/g, "_").toUpperCase();
+
+            let code = `${hodData.institute.code}_${hodData.department.code}_${cleanName}`;
+            let counter = 1;
+
+            while (await Course.findOne({ code, institute: hodData.institute._id, _id: { $ne: id } })) {
+                code = `${hodData.institute.code}_${hodData.department.code}_${cleanName}_${counter}`;
+                counter++;
+            }
+
+            course.name = name.trim();
+            course.code = code;
+        }
+
+        if (sem !== undefined) {
+            if (sem < 1 || sem > 8) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Semester must be between 1 and 8"
+                });
+            }
+            course.semester = sem;
+        }
+
+        if (credits !== undefined) {
+            if (credits < 0 || credits > 4) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Credits must be between 0 and 4"
+                });
+            }
+            course.credits = credits;
+        }
+
+        await course.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Course updated successfully",
+            course
+        });
+
+    } catch (error) {
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: "Course with this code already exists"
+            });
+        }
+
         res.status(400).json({
             success: false,
             message: error.message
         });
     }
-}
+};
 
 //DELETE Course
 const deleteCourse = async (req, res) => {
@@ -260,8 +392,8 @@ const createSection = async (req, res) => {
     }
 };
 
-//READ Section
-const readSections = async (req, res) => {
+// GET Teachers (HOD - department scoped)
+const getTeachers = async (req, res) => {
     try {
         const hod = await Teacher.findById(req.user.id)
             .select("institute department")
@@ -274,35 +406,157 @@ const readSections = async (req, res) => {
             });
         }
 
-        const courses = await Course.find({
+        const filter = {
             institute: hod.institute,
             department: hod.department
-        }).select("_id").lean();
+        };
 
-        const courseIds = courses.map(c => c._id);
+        const isPaginated = req.query.page || req.query.limit;
 
-        const sections = await Section.find({
-            course: { $in: courseIds }
-        })
-        .populate("course", "name code")
-        .populate("teacher", "name email")
-        .lean();
+        // =============================
+        // NON-PAGINATED (GET ALL)
+        // =============================
+        if (!isPaginated) {
+            const teachers = await Teacher.find(filter)
+                .select("firstName lastName email")
+                .sort({ createdAt: -1 })
+                .lean();
+
+            return res.status(200).json({
+                success: true,
+                data: teachers
+            });
+        }
+
+        // =============================
+        // PAGINATED
+        // =============================
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const total = await Teacher.countDocuments(filter);
+
+        const teachers = await Teacher.find(filter)
+            .select("firstName lastName email")
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
 
         res.status(200).json({
             success: true,
-            count: sections.length,
-            data: sections
+            data: teachers,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
         });
 
     } catch (error) {
-        res.status(400).json({
+        res.status(500).json({
             success: false,
             message: error.message
         });
     }
 };
 
-//UPDATE Course
+// GET Sections (Course-based)
+const getSections = async (req, res) => {
+    try {
+        const { courseId } = req.query;
+
+        if (!courseId) {
+            return res.status(400).json({
+                success: false,
+                message: "Course ID is required"
+            });
+        }
+
+        const hod = await Teacher.findById(req.user.id)
+            .select("institute department")
+            .lean();
+
+        if (!hod) {
+            return res.status(404).json({
+                success: false,
+                message: "HOD not found"
+            });
+        }
+
+        // Validate course belongs to HOD
+        const course = await Course.findOne({
+            _id: courseId,
+            institute: hod.institute,
+            department: hod.department
+        }).lean();
+
+        if (!course) {
+            return res.status(403).json({
+                success: false,
+                message: "Not authorized for this course"
+            });
+        }
+
+        const filter = { course: courseId };
+
+        const isPaginated = req.query.page || req.query.limit;
+
+        // =============================
+        // NON-PAGINATED
+        // =============================
+        if (!isPaginated) {
+            const sections = await Section.find(filter)
+                .populate("course", "name code")
+                .populate("teacher", "firstName lastName email")
+                .sort({ createdAt: -1 })
+                .lean();
+
+            return res.status(200).json({
+                success: true,
+                data: sections
+            });
+        }
+
+        // =============================
+        // PAGINATED
+        // =============================
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const total = await Section.countDocuments(filter);
+
+        const sections = await Section.find(filter)
+            .populate("course", "name code")
+            .populate("teacher", "firstName lastName email")
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        res.status(200).json({
+            success: true,
+            data: sections,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+//UPDATE Section
 const updateSection = async (req, res) => {
     try {
         const { id } = req.params;
@@ -452,7 +706,7 @@ const deleteSection = async (req, res) => {
 //----------------------------------------
 
 //READ Profile
-const readProfile = async(req, res) => {
+const readProfile = async (req, res) => {
     try {
         const hod = await Teacher.findById(req.user.id)
 
@@ -462,7 +716,7 @@ const readProfile = async(req, res) => {
 
         res.status(200).json({ success: true, data: hod });
     }
-    catch(error) {
+    catch (error) {
         res.status(500).json({
             success: false,
             message: error.message
@@ -489,7 +743,7 @@ const updateProfile = async (req, res) => {
         if (gender) hod.gender = gender;
         if (dateOfBirth) hod.dateOfBirth = dateOfBirth;
 
-        await Teacher.save();
+        await hod.save();
 
         res.status(200).json({
             success: true,
@@ -517,13 +771,13 @@ const changePassword = async (req, res) => {
             return res.status(404).json({ success: false, message: "Hod not found" });
         }
 
-        const isMatch = await Teacher.comparePassword(currentPassword);
+        const isMatch = await hod.comparePassword(currentPassword);
         if (!isMatch) {
             return res.status(400).json({ success: false, message: "Current password is incorrect" });
         }
 
-        if(currentPassword == newPassword) {
-            return res.status(400).json({success: false, message: "Current Password and New Password cannot be same"})
+        if (currentPassword == newPassword) {
+            return res.status(400).json({ success: false, message: "Current Password and New Password cannot be same" })
         }
 
         hod.password = newPassword;
@@ -542,13 +796,14 @@ const changePassword = async (req, res) => {
 export default {
     //CRUD Course
     createCourse,
-    readCourse,
+    getCourses,
     updateCourse,
     deleteCourse,
 
     //CRUD Section
     createSection,
-    readSections,
+    getTeachers,
+    getSections,
     updateSection,
     deleteSection,
 
