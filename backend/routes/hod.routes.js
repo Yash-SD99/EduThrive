@@ -14,16 +14,19 @@ router.get("/dashboard", (req, res) => {
 })
 
 //CRUD Course
-router.post("/course", HOD.createCourse)
-router.get("/course", HOD.readCourse)
-router.put("/course", HOD.updateCourse)
-router.delete("/course", HOD.deleteCourse)
+router.post("/courses", HOD.createCourse)
+router.get("/courses", HOD.getCourses)
+router.put("/courses/:id", HOD.updateCourse)
+router.delete("/courses/:id", HOD.deleteCourse)
 
 //CRUD Section
-router.post("/section", HOD.createSection)
-router.get("/section", HOD.readSections)
-router.put("/section", HOD.updateSection)
-router.delete("/section", HOD.deleteSection)
+router.post("/sections", HOD.createSection)
+router.get("/sections", HOD.getSections)
+router.put("/sections/:id", HOD.updateSection)
+router.delete("/sections/:id", HOD.deleteSection)
+
+//GET Teachers
+router.get("/teachers", HOD.getTeachers)
 
 //Profile
 router.get("/profile", HOD.readProfile)
