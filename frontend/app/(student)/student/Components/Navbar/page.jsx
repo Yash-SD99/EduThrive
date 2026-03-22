@@ -13,7 +13,8 @@ const Navbar = () => {
             method: "POST",
             credentials: "include"
         })
-		localStorage.removeItem("role")
+
+        localStorage.removeItem("role")
 
         router.replace("/")
     }
@@ -21,8 +22,8 @@ const Navbar = () => {
     // Convert route to title
     const getPageTitle = () => {
         if (pathname.includes("dashboard")) return "Dashboard"
-        if (pathname.includes("courses")) return "Courses"
-        if (pathname.includes("sections")) return "Sections"
+        if (pathname.includes("enroll")) return "Enrollment"
+        if (pathname.includes("courses")) return "My Courses"
         if (pathname.includes("profile")) return "Profile"
 
         return "Dashboard"

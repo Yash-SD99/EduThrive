@@ -14,8 +14,8 @@ router.get("/dashboard", (req, res) => {
 });
 
 //Courses
-router.get("/courses/available", Student.readCourses)
-router.post("/courses/available/:courseId/enroll", Student.enroll)
+router.get("/enroll", Student.readCourses)
+router.post("/enroll/:courseId", Student.enroll)
 
 //My Courses
 router.get("/courses", Student.MyCourses)
