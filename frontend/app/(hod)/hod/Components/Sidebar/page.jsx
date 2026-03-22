@@ -11,7 +11,8 @@ import {
 	LayoutDashboard,
 	BookOpenText,
 	Blocks,
-	UserRound
+	UserRound,
+	ArrowRightLeft
 } from "lucide-react"
 
 const Sidebar = () => {
@@ -46,6 +47,11 @@ const Sidebar = () => {
 			href: "/hod/profile",
 			icon: UserRound
 		},
+		{
+			title: "View As Teacher",
+			href: "/teacher/dashboard",
+			icon: ArrowRightLeft
+		}
 	]
 
 	return (

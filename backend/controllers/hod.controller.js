@@ -364,6 +364,7 @@ const createSection = async (req, res) => {
         }
 
         const section = await Section.create({
+            institute: req.user.institute,
             course: courseId,
             teacher: teacherId,
             sectionName: sectionName.toUpperCase(),

@@ -33,6 +33,10 @@ export function proxy(request) {
     const pathRole = pathname.split("/")[1];
     const allowedRoles = ["student", "teacher", "hod", "director"];
 
+    if (role === "hod" && pathRole === "teacher") {
+      return NextResponse.next();
+    }
+
     if (allowedRoles.includes(pathRole) && pathRole !== role) {
       return NextResponse.redirect(new URL("/", request.url));
     }

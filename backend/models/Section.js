@@ -31,6 +31,11 @@ const sectionSchema = new mongoose.Schema({
     default: 0,
     min: 0,
   },
+  institute: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Institute",
+  required: true
+},
 }, { timestamps: true });
 
 // Prevent duplicate sections
@@ -40,8 +45,8 @@ sectionSchema.index(
 );
 
 // Performance indexes
-sectionSchema.index({ course: 1 });
-sectionSchema.index({ teacher: 1 });
-sectionSchema.index({ course: 1, academicYear: 1, currentStrength: 1 });
+sectionSchema.index({institute: 1, course: 1 });
+sectionSchema.index({institute: 1, teacher: 1 });
+sectionSchema.index({institute: 1, course: 1, academicYear: 1, currentStrength: 1 });
 
 export default mongoose.model("Section", sectionSchema);

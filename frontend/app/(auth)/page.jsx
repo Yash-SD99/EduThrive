@@ -44,6 +44,8 @@ export default function LoginPage() {
 				return;
 			}
 
+			localStorage.setItem("role", result.role)
+
 			router.push(`/${result.role}/dashboard`);
 		} catch (error) {
 			setError("root", {

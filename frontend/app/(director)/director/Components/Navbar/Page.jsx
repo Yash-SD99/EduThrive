@@ -14,6 +14,8 @@ const Navbar = () => {
 			credentials: "include"
 		})
 
+		localStorage.clear()
+
 		router.replace("/")
 	}
 

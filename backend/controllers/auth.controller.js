@@ -25,10 +25,17 @@ export const login = async (req, res) => {
 		}
 
 		const user = await Model.findOne({ email })
-		
+
 		if (!user) {
 			return res.status(401).json({ message: "Invalid credentials" });
 		}
+
+		if (user.role !== role) {
+			return res.status(403).json({
+				message: "You are not authorized for this role"
+			});
+		}
+
 
 		const isMatch = await user.comparePassword(password);
 

@@ -10,6 +10,8 @@ const dashboard = () => {
     await fetch("/api/auth/logout", {
       method: "POST",
     })
+		localStorage.clear()
+
 
     router.replace("/"); //Used replace instead of push So that user cant go back using back arrow 
   };
