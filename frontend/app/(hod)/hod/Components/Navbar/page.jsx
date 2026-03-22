@@ -13,6 +13,7 @@ const Navbar = () => {
             method: "POST",
             credentials: "include"
         })
+		localStorage.clear()
 
         router.replace("/")
     }

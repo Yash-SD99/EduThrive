@@ -29,9 +29,11 @@ router.get("/sections/:sectionId/assessments/:assessmentId/marks", Teacher.getMa
 router.put("/sections/:sectionId/assessments/:assessmentId/marks", Teacher.upsertMarks)
 router.delete("/sections/:sectionId/assessments/:assessmentId/marks/:markId", Teacher.deleteMark)
 
-//Attendance
+// Attendance
+router.post("/sections/:sectionId/attendance", Teacher.createAttendance)
 router.put("/sections/:sectionId/attendance", Teacher.upsertAttendance)
-router.get("/sections/:sectionId/attendance", Teacher.getAttendance)
+router.get("/sections/:sectionId/attendance", Teacher.getAttendance) // list
+router.get("/sections/:sectionId/attendance/:attendanceId", Teacher.getAttendanceById) // NEW
 router.delete("/sections/:sectionId/attendance/:attendanceId", Teacher.deleteAttendance)
 
 //Student
