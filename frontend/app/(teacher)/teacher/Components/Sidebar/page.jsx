@@ -245,28 +245,30 @@ const Sidebar = () => {
 					})}
 
 					{/* View Switch */}
-					{role === "hod" &&
-						(viewAsHod.map((item, i) => {
-							const Icon = item.icon
-							const isActive = pathname.startsWith(item.href)
+					<div className="bg-secondary rounded-md">
+						{role === "hod" &&
+							(viewAsHod.map((item, i) => {
+								const Icon = item.icon
+								const isActive = pathname.startsWith(item.href)
 
-							return (
-								<Link
-									key={i}
-									href={item.href}
-									onClick={() => setOpen(false)}
-									className={`flex items-center gap-3 px-4 py-2 rounded-md transition hover:bg-[rgb(var(--primary))] hover:text-white
-								${isActive
-											? "bg-[rgb(var(--primary))] text-white"
-											: "hover:bg-muted"}`}
-								>
-									<Icon size={18} />
-									<span>{item.title}</span>
-								</Link>
-							)
+								return (
+									<Link
+										key={i}
+										href={item.href}
+										onClick={() => setOpen(false)}
+										className={`flex items-center gap-3 px-4 py-2 rounded-md transition hover:bg-[rgb(var(--primary))] hover:text-white
+									${isActive
+												? "bg-[rgb(var(--primary))] text-white"
+												: "hover:bg-muted"}`}
+									>
+										<Icon size={18} />
+										<span>{item.title}</span>
+									</Link>
+								)
+							}
+							))
 						}
-						))
-					}
+					</div>
 
 				</nav>
 			</div>

@@ -5,13 +5,15 @@ import Attendance from "../models/Attendance.js"
 import Marks from "../models/Marks.js"
 import Enrollment from "../models/Enrollment.js"
 import Student from "../models/Student.js"
+import mongoose from "mongoose"
 
 //View Courses
 const readCourses = async (req, res) => {
     try {
-        const student = await Student.findOne({ institute: req.user.institute, _id: req.user.id })
-            .select("sem")
-            .lean()
+        const student = await Student.findOne({
+            institute: req.user.institute,
+            _id: req.user.id
+        }).select("sem").lean();
 
         const enrolled = await Enrollment.find({
             student: req.user.id,
@@ -20,22 +22,61 @@ const readCourses = async (req, res) => {
 
         const enrolledIds = enrolled.map(e => e.course);
 
-        const courses = await Course.find({
+        const filter = {
             institute: req.user.institute,
             semester: student.sem,
             _id: { $nin: enrolledIds }
-        })
-            .populate("department", "name code");
+        };
 
-        res.status(200).json({ success: true, data: courses })
-    }
-    catch (error) {
+        const isPaginated = req.query.page || req.query.limit;
+
+        // =============================
+        // NON-PAGINATED
+        // =============================
+        if (!isPaginated) {
+            const courses = await Course.find(filter)
+                .populate("department", "name code")
+                .lean();
+
+            return res.status(200).json({
+                success: true,
+                data: courses
+            });
+        }
+
+        // =============================
+        // PAGINATED
+        // =============================
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const total = await Course.countDocuments(filter);
+
+        const courses = await Course.find(filter)
+            .populate("department", "name code")
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        res.status(200).json({
+            success: true,
+            data: courses,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+
+    } catch (error) {
         res.status(400).json({
             success: false,
             message: error.message
         });
     }
-}
+};
 
 //Enroll in Course
 const enroll = async (req, res) => {
@@ -103,6 +144,7 @@ const enroll = async (req, res) => {
         //Create enrollment
         await Enrollment.create([{
             student: studentId,
+            course: courseId,
             section: section._id,
             institute: instituteId,
             academicYear
@@ -134,28 +176,86 @@ const MyCourses = async (req, res) => {
         const studentId = req.user.id;
         const instituteId = req.user.institute;
 
-        const enrollments = await Enrollment.find({
+        const isPaginated = req.query.page || req.query.limit;
+
+        // =============================
+        // BASE QUERY
+        // =============================
+        const baseQuery = Enrollment.find({
             student: studentId,
             institute: instituteId
-        })
-            .populate({
-                path: "section",
-                select: "sectionName academicYear teacher course",
-                populate: [
-                    {
-                        path: "teacher",
-                        select: "name"
-                    },
-                    {
-                        path: "course",
-                        select: "name code department",
-                        populate: {
-                            path: "department",
-                            select: "name code"
-                        }
+        }).populate({
+            path: "section",
+            select: "sectionName academicYear teacher course",
+            populate: [
+                {
+                    path: "teacher",
+                    select: "firstName lastName"
+                },
+                {
+                    path: "course",
+                    select: "name code department credits",
+                    populate: {
+                        path: "department",
+                        select: "name code"
                     }
-                ]
-            })
+                }
+            ]
+        });
+
+        // =============================
+        // NON-PAGINATED
+        // =============================
+        if (!isPaginated) {
+
+            const enrollments = await baseQuery.lean();
+
+            const formatted = enrollments.map(enroll => ({
+                enrollmentId: enroll._id,
+                course: {
+                    id: enroll.section.course._id,
+                    name: enroll.section.course.name,
+                    code: enroll.section.course.code,
+                    credits: enroll.section.course.credits,
+                    department: {
+                        name: enroll.section.course.department.name,
+                        code: enroll.section.course.department.code
+                    }
+                },
+                section: {
+                    id: enroll.section._id,
+                    name: enroll.section.sectionName,
+                    academicYear: enroll.section.academicYear
+                },
+                teacher: {
+                    id: enroll.section.teacher._id,
+                    firstName: enroll.section.teacher.firstName,
+                    lastName: enroll.section.teacher.lastName
+                }
+            }));
+
+            return res.status(200).json({
+                success: true,
+                count: formatted.length,
+                data: formatted
+            });
+        }
+
+        // =============================
+        // PAGINATED
+        // =============================
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const total = await Enrollment.countDocuments({
+            student: studentId,
+            institute: instituteId
+        });
+
+        const enrollments = await baseQuery
+            .skip(skip)
+            .limit(limit)
             .lean();
 
         const formatted = enrollments.map(enroll => ({
@@ -164,6 +264,7 @@ const MyCourses = async (req, res) => {
                 id: enroll.section.course._id,
                 name: enroll.section.course.name,
                 code: enroll.section.course.code,
+                credits: enroll.section.course.credits,
                 department: {
                     name: enroll.section.course.department.name,
                     code: enroll.section.course.department.code
@@ -176,14 +277,21 @@ const MyCourses = async (req, res) => {
             },
             teacher: {
                 id: enroll.section.teacher._id,
-                name: enroll.section.teacher.name
+                firstName: enroll.section.teacher.firstName,
+                lastName: enroll.section.teacher.lastName
             }
         }));
 
         res.status(200).json({
             success: true,
             count: formatted.length,
-            data: formatted
+            data: formatted,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
         });
 
     } catch (error) {
@@ -242,7 +350,7 @@ const getMarksByCourse = async (req, res) => {
                 assessmentId: assessment._id,
                 title: assessment.title,
                 type: assessment.type,
-                maxMarks: assessment.maxMarks,
+                maxMarks: assessment.totalMarks,
                 date: assessment.date,
                 marksObtained: mark ? mark.marksObtained : null
             };
@@ -304,8 +412,8 @@ const getAttendanceByCourse = async (req, res) => {
             );
 
             if (record) {
-                if (record.status === "Present") presentCount++;
-                if (record.status === "Absent") absentCount++;
+                if (record.status === "present") presentCount++;
+                if (record.status === "absent") absentCount++;
 
                 records.push({
                     date: doc.date,
