@@ -19,6 +19,7 @@ router.post("/enroll/:courseId", Student.enroll)
 
 //My Courses
 router.get("/courses", Student.MyCourses)
+router.get("/courses/:courseId/course-analytics", Student.getCourseAnalytics)
 router.get("/courses/:courseId/marks", Student.getMarksByCourse)
 router.get("/courses/:courseId/attendance", Student.getAttendanceByCourse)
 
