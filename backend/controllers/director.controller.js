@@ -901,33 +901,120 @@ const updateProfile = async (req, res) => {
 const updateInstitute = async (req, res) => {
     try {
         const directorId = req.user.id;
-        const { name, code, address, establishedYear } = req.body;
+
+        const {
+            name,
+            code,
+            address,
+            establishedYear,
+            academicPolicy
+        } = req.body;
 
         const director = await Director.findById(directorId);
 
         if (!director) {
-            return res.status(404).json({ success: false, message: "Director not found" });
+            return res.status(404).json({
+                success: false,
+                message: "Director not found"
+            });
         }
 
         const institute = await Institute.findById(director.institute);
+
         if (!institute) {
-            return res.status(404).json({ success: false, message: "Institute not found" });
+            return res.status(404).json({
+                success: false,
+                message: "Institute not found"
+            });
         }
 
+        // Basic fields
         if (name) institute.name = name;
         if (code) institute.code = code;
         if (address) institute.address = address;
         if (establishedYear) institute.establishedYear = establishedYear;
 
+        // 🔥 Academic Policy Update
+        if (academicPolicy) {
+
+            const {
+                attendanceThreshold,
+                passingMarks,
+                assessmentWeightage
+            } = academicPolicy;
+
+            // Update attendance threshold
+            if (attendanceThreshold !== undefined) {
+                if (attendanceThreshold < 0 || attendanceThreshold > 100) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Attendance threshold must be between 0 and 100"
+                    });
+                }
+                institute.academicPolicy.attendanceThreshold = attendanceThreshold;
+            }
+
+            // Update passing marks
+            if (passingMarks !== undefined) {
+                if (passingMarks < 0 || passingMarks > 100) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Passing marks must be between 0 and 100"
+                    });
+                }
+                institute.academicPolicy.passingMarks = passingMarks;
+            }
+
+            // Update assessment weightage
+            if (assessmentWeightage) {
+
+                const {
+                    Assignment,
+                    Quiz,
+                    Midterm,
+                    Final
+                } = assessmentWeightage;
+
+                const total =
+                    (Assignment ?? institute.academicPolicy.assessmentWeightage.Assignment) +
+                    (Quiz ?? institute.academicPolicy.assessmentWeightage.Quiz) +
+                    (Midterm ?? institute.academicPolicy.assessmentWeightage.Midterm) +
+                    (Final ?? institute.academicPolicy.assessmentWeightage.Final);
+
+                if (total !== 100) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Total assessment weightage must equal 100%"
+                    });
+                }
+
+                if (Assignment !== undefined)
+                    institute.academicPolicy.assessmentWeightage.Assignment = Assignment;
+
+                if (Quiz !== undefined)
+                    institute.academicPolicy.assessmentWeightage.Quiz = Quiz;
+
+                if (Midterm !== undefined)
+                    institute.academicPolicy.assessmentWeightage.Midterm = Midterm;
+
+                if (Final !== undefined)
+                    institute.academicPolicy.assessmentWeightage.Final = Final;
+            }
+        }
+
         await institute.save();
 
         res.status(200).json({
             success: true,
-            message: "Institute details updated successfully",
+            message: "Institute details & academic policy updated successfully",
             body: institute
         });
+
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 };
 

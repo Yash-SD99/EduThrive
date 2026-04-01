@@ -34,6 +34,12 @@ app.use("/api/hod", hodRoutes)
 import directorRoutes from "./routes/director.routes.js"
 app.use("/api/director", directorRoutes)
 
+import analyticsRoutes from "./routes/analytics.routes.js";
+app.use("/api/analytics", analyticsRoutes);
+
+import alertRoutes from "./routes/alerts.routes.js";
+app.use("/api/alerts", alertRoutes);
+
 // db
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
