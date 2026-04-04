@@ -2,13 +2,22 @@ import jwt from "jsonwebtoken";
 import Director from "../models/Director.js";
 import Teacher from "../models/Teacher.js";
 import Student from "../models/Student.js";
+import Institute from "../models/Institute.js";
 
 export const login = async (req, res) => {
 	try {
+		const { code } = req.params;
 		const { email, password, role } = req.body;
 
 		if (!email || !password || !role) {
 			return res.status(400).json({ message: "Missing credentials" });
+		}
+
+		// Find institute by code
+		const institute = await Institute.findOne({ code: code.toUpperCase() });
+
+		if (!institute) {
+			return res.status(404).json({ message: "Institute not found" });
 		}
 
 		const modelMap = {
@@ -24,7 +33,8 @@ export const login = async (req, res) => {
 			return res.status(400).json({ message: "Invalid role" });
 		}
 
-		const user = await Model.findOne({ email })
+		// Scope login to the institute
+		const user = await Model.findOne({ email, institute: institute._id });
 
 		if (!user) {
 			return res.status(401).json({ message: "Invalid credentials" });
@@ -35,7 +45,6 @@ export const login = async (req, res) => {
 				message: "You are not authorized for this role"
 			});
 		}
-
 
 		const isMatch = await user.comparePassword(password);
 

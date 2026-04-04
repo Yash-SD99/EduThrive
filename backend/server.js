@@ -19,6 +19,9 @@ app.use(express.json());
 app.use(cookieParser())
 
 // routes
+import instituteRoutes from "./routes/institute.routes.js";
+app.use("/api/institute", instituteRoutes);
+
 import authRoutes from "./routes/auth.routes.js";
 app.use("/api/auth", authRoutes);
 
