@@ -61,7 +61,7 @@ export const login = async (req, res) => {
 		res.cookie("accessToken", token, {
 			httpOnly: true,      // JS cannot access it
 			secure: process.env.NODE_ENV === "production",
-			sameSite: "strict",  // CSRF protection
+			sameSite: "none", 
 			maxAge: 24 * 60 * 60 * 1000 // 1 day
 		});
 
@@ -79,7 +79,7 @@ export const login = async (req, res) => {
 export const logout = (req, res) => {
 	res.clearCookie("accessToken", {
 		httpOnly: true,
-		sameSite: "strict",
+		sameSite: "none",
 		secure: process.env.NODE_ENV === "production", // true in production
 	});
 
